@@ -5,13 +5,13 @@ export class LoginDto {
    * Registered email address
    * @example user@echogpt.com
    */
-  @IsEmail({}, { message: 'Must be a valid email address' })
+  @IsEmail()
   @IsNotEmpty()
   email: string;
 
   /**
    * Account password
-   * @example SecretPass123!
+   * @example Secret123!
    */
   @IsString()
   @IsNotEmpty()

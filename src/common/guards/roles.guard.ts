@@ -19,7 +19,7 @@ export class RolesGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
     if (!user || !user.role) {
-      throw new ForbiddenException('Access denied: User has no valid role assigned');
+      throw new ForbiddenException('Access denied: User has no valid role');
     }
 
     const hasRole = requiredRoles.some((role) => user.role === role);

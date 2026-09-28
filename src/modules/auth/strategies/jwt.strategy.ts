@@ -19,7 +19,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_ACCESS_SECRET') || 'echogpt_super_secret_jwt_access_key_min_32_characters_12345',
+      secretOrKey:
+        configService.get<string>('JWT_ACCESS_SECRET') ||
+        'echogpt_super_secret_jwt_access_key_min_32_characters_12345',
     });
   }
 
@@ -29,16 +31,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
         role: true,
-        isEmailVerified: true,
-        createdAt: true,
+        subscriptionId: true,
+        requestsCount: true,
+        subscription: true,
       },
     });
 
     if (!user) {
-      throw new UnauthorizedException('User account no longer exists or token is invalid');
+      throw new UnauthorizedException('User account no longer exists');
     }
 
     return user;

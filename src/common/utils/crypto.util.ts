@@ -9,8 +9,10 @@ export class CryptoUtil {
   private static readonly AUTH_TAG_LENGTH = 16; // 128 bits
 
   private static getEncryptionKey(): Buffer {
-    const rawKey = process.env.ENCRYPTION_KEY || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-    // If provided as 64-char hex, parse to 32 bytes Buffer; otherwise hash with sha256 to ensure exact 32 bytes
+    const rawKey =
+      process.env.ENCRYPTION_KEY ||
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
     if (rawKey.length === 64 && /^[0-9a-fA-F]+$/.test(rawKey)) {
       return Buffer.from(rawKey, 'hex');
     }
@@ -19,28 +21,30 @@ export class CryptoUtil {
 
   /**
    * Encrypts plaintext string using AES-256-GCM
-   * Returns encrypted ciphertext (hex), iv (hex), and authTag (hex)
+   * Returns a single compact packed string format: "iv:authTag:ciphertext"
    */
-  static encrypt(plaintext: string): { ciphertext: string; iv: string; authTag: string } {
+  static encrypt(plaintext: string): string {
     const iv = crypto.randomBytes(this.IV_LENGTH);
     const key = this.getEncryptionKey();
     const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
 
-    let encrypted = cipher.update(plaintext, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
+    let ciphertext = cipher.update(plaintext, 'utf8', 'hex');
+    ciphertext += cipher.final('hex');
     const authTag = cipher.getAuthTag().toString('hex');
 
-    return {
-      ciphertext: encrypted,
-      iv: iv.toString('hex'),
-      authTag,
-    };
+    return `${iv.toString('hex')}:${authTag}:${ciphertext}`;
   }
 
   /**
-   * Decrypts ciphertext using AES-256-GCM with iv and authTag
+   * Decrypts packed string ("iv:authTag:ciphertext") using AES-256-GCM
    */
-  static decrypt(ciphertext: string, ivHex: string, authTagHex: string): string {
+  static decrypt(packedCiphertext: string): string {
+    const parts = packedCiphertext.split(':');
+    if (parts.length !== 3) {
+      throw new Error('Invalid encrypted payload format');
+    }
+    const [ivHex, authTagHex, ciphertextHex] = parts;
+
     const key = this.getEncryptionKey();
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
@@ -48,7 +52,7 @@ export class CryptoUtil {
     const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
     decipher.setAuthTag(authTag);
 
-    let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+    let decrypted = decipher.update(ciphertextHex, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   }

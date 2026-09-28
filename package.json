@@ -22,6 +22,9 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.65",
+    "@ai-sdk/google": "^4.0.82",
+    "@ai-sdk/openai": "^4.0.78",
     "@nestjs/common": "^10.3.8",
     "@nestjs/config": "^3.2.2",
     "@nestjs/core": "^10.3.8",
@@ -32,6 +35,7 @@
     "@nestjs/terminus": "^10.2.3",
     "@nestjs/throttler": "^5.1.2",
     "@prisma/client": "^5.13.0",
+    "ai": "^7.0.118",
     "argon2": "^0.40.1",
     "axios": "^1.6.8",
     "class-transformer": "^0.5.1",
