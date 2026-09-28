@@ -22,9 +22,23 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Register a new user account (auto-assigned FREE plan)' })
-  @ApiResponse({ status: 201, description: 'User successfully registered' })
-  @ApiResponse({ status: 409, description: 'Email already exists' })
+  @ApiOperation({
+    summary: 'Register a new user account (auto-assigned FREE plan)',
+    description: `
+### ⚙️ How It Occurs in the Service
+1. **Input Validation**: Evaluates RFC-compliant email formatting and minimum password length constraints via class-validator.
+2. **Duplication Guard**: Performs an indexed search on \`User.email\`; aborts with HTTP 409 Conflict if an account already exists.
+3. **Argon2id Hashing**: Hashes raw passwords using Argon2id (memory-hard, resistant to GPU/ASIC attacks).
+4. **Subscription Linkage**: Queries the \`Subscription\` table for \`PlanType.FREE\` (creating it if absent) and attaches the user record with an initial \`requestsCount: 0\`.
+5. **Dual-Token Generation**: Issues an access token (15m expiry) and refresh token (7d expiry), saving the Argon2-hashed refresh token to \`User.hashedRefreshToken\`.
+
+### 📈 Future Scalability & Architecture Roadmap
+* **Async Verification**: Offload welcome and email verification emails to background BullMQ worker queues.
+* **Captcha Guard**: Introduce Turnstile / reCAPTCHA validation on the edge to prevent credential stuffing bots.
+    `,
+  })
+  @ApiResponse({ status: 201, description: 'User successfully registered with dual JWT tokens' })
+  @ApiResponse({ status: 409, description: 'Email already registered in system' })
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -32,9 +46,22 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Log in and receive JWT Access & Refresh tokens' })
-  @ApiResponse({ status: 200, description: 'User authenticated successfully' })
-  @ApiResponse({ status: 401, description: 'Invalid email or password' })
+  @ApiOperation({
+    summary: 'Log in and receive JWT Access & Refresh tokens',
+    description: `
+### ⚙️ How It Occurs in the Service
+1. **Record Lookup**: Retrieves user by normalized email including role and subscription relations.
+2. **Constant-Time Verification**: Verifies submitted password against stored Argon2id hash.
+3. **Token Issuance**: Generates a 15-minute asymmetric JWT access token and a 7-day cryptographic refresh token.
+4. **Session Persistence**: Hashes the refresh token and persists it in PostgreSQL, ensuring only the single latest issued token can rotate the session.
+
+### 📈 Future Scalability & Architecture Roadmap
+* **Distributed Brute-Force Shield**: Transition from in-memory throttler to distributed Redis rate-limiting per IP/email.
+* **Geo-Fencing & Anomaly Alerts**: Emit login events via Kafka or RabbitMQ for fraud analysis.
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'User authenticated; Access and Refresh tokens issued' })
+  @ApiResponse({ status: 401, description: 'Invalid email or password credentials' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
@@ -42,19 +69,42 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Rotate refresh token and issue new access token' })
-  @ApiResponse({ status: 200, description: 'Tokens rotated successfully' })
-  @ApiResponse({ status: 401, description: 'Invalid or revoked refresh token' })
+  @ApiOperation({
+    summary: 'Rotate refresh token and issue new access token',
+    description: `
+### ⚙️ How It Occurs in the Service
+1. **Cryptographic Verification**: Verifies incoming refresh token signature using \`JWT_REFRESH_SECRET\`.
+2. **Database Hash Comparison**: Matches token against \`User.hashedRefreshToken\` using Argon2 verification.
+3. **Replay Protection**: Immediately generates and hashes a brand new refresh token, invalidating the old token upon use.
+4. **Dual Return**: Emits refreshed access token (15m) and rotated refresh token (7d).
+
+### 📈 Future Scalability & Architecture Roadmap
+* **Multi-Device Session Cluster**: Migrate session tokens to Redis with family IDs to track and selectively revoke individual laptop/mobile extension sessions.
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'Tokens rotated; new access and refresh tokens returned' })
+  @ApiResponse({ status: 401, description: 'Refresh token invalid, revoked, or expired' })
   async refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto);
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @ApiBearerAuth('JWT')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Log out user and invalidate refresh token session' })
-  @ApiResponse({ status: 200, description: 'Successfully logged out' })
+  @ApiOperation({
+    summary: 'Log out user and invalidate refresh token session',
+    description: `
+### ⚙️ How It Occurs in the Service
+1. **Identity Extraction**: Extracts verified user ID from active JWT bearer payload.
+2. **Session Revocation**: Updates \`User.hashedRefreshToken\` to \`null\` in PostgreSQL.
+3. **Rejection Safeguard**: Any subsequent attempts to call \`/auth/refresh\` are permanently rejected with HTTP 401 Unauthorized.
+
+### 📈 Future Scalability & Architecture Roadmap
+* **JWT Blocklist**: Publish active access token JTI to a short-lived Redis TTL blocklist for immediate distributed token revocation across all microservices.
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'User session successfully terminated' })
   async logout(@CurrentUser('id') userId: string) {
     return this.authService.logout(userId);
   }
