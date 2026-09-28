@@ -162,13 +162,13 @@ export class ChatService {
   private getModelInstance(name: AiModel, apiKey: string) {
     switch (name) {
       case AiModel.OPENAI:
-        return createOpenAI({ apiKey })('gpt-4o');
+        return createOpenAI({ apiKey })('gpt-4o-mini');
       case AiModel.CLAUDE:
         return createAnthropic({ apiKey })('claude-3-5-sonnet-20241022');
       case AiModel.GEMINI:
         return createGoogleGenerativeAI({ apiKey })('gemini-1.5-flash');
       default:
-        return createOpenAI({ apiKey })('gpt-4o');
+        return createOpenAI({ apiKey })('gpt-4o-mini');
     }
   }
 

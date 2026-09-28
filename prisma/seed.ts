@@ -75,12 +75,12 @@ async function main() {
   const providers = [
     {
       name: AiModel.OPENAI,
-      rawKey: process.env.OPENAI_API_KEY || 'sk-demo-openai-key',
+      rawKey: process.env.OPENAI_API_KEY || process.env.Openai_Api || 'sk-demo-openai-key',
       isDefault: true,
     },
     {
       name: AiModel.GEMINI,
-      rawKey: process.env.GEMINI_API_KEY || 'AIzaSyDemoGeminiKey',
+      rawKey: process.env.GEMINI_API_KEY || process.env.Gemini_Api || 'AIzaSyDemoGeminiKey',
       isDefault: false,
     },
     {
