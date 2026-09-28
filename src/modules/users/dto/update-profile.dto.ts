@@ -1,19 +1,12 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateProfileDto {
   /**
-   * Updated first name
-   * @example Jane
+   * User display name
+   * @example John Doe
    */
   @IsOptional()
   @IsString()
-  firstName?: string;
-
-  /**
-   * Updated last name
-   * @example Smith
-   */
-  @IsOptional()
-  @IsString()
-  lastName?: string;
+  @MaxLength(100)
+  name?: string;
 }
