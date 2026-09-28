@@ -1,3 +1,4 @@
+require('dotenv').config();
 const axios = require('axios');
 
 const BASE_URL = 'http://localhost:3000/api/v1';
@@ -35,8 +36,8 @@ async function runTests() {
 
     // 3. Admin Login
     const adminLoginRes = await axios.post(`${BASE_URL}/auth/login`, {
-      email: 'admin@echogpt.com',
-      password: 'AdminPass123!',
+      email: process.env.ADMIN_EMAIL,
+      password: process.env.ADMIN_PASSWORD,
     });
     const adminTokens = adminLoginRes.data.data.tokens;
     const adminAuthHeader = { headers: { Authorization: `Bearer ${adminTokens.accessToken}` } };

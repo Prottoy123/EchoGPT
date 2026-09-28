@@ -9,9 +9,10 @@ export class CryptoUtil {
   private static readonly AUTH_TAG_LENGTH = 16; // 128 bits
 
   private static getEncryptionKey(): Buffer {
-    const rawKey =
-      process.env.ENCRYPTION_KEY ||
-      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const rawKey = process.env.ENCRYPTION_KEY;
+    if (!rawKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required');
+    }
 
     if (rawKey.length === 64 && /^[0-9a-fA-F]+$/.test(rawKey)) {
       return Buffer.from(rawKey, 'hex');
