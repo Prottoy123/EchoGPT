@@ -90,6 +90,77 @@ export class UsersService {
     };
   }
 
+  async updateProfile(userId: string, name?: string) {
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { name },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        requestsCount: true,
+        subscription: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      message: 'Profile updated successfully',
+      user: updated,
+    };
+  }
+
+  async getSubscriptionStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        subscription: true,
+        requestsCount: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const remainingRequests = Math.max(
+      0,
+      user.subscription.requestLimit - user.requestsCount,
+    );
+
+    return {
+      planName: user.subscription.planName,
+      requestLimit: user.subscription.requestLimit,
+      requestsCount: user.requestsCount,
+      remainingRequests,
+      status: 'ACTIVE',
+    };
+  }
+
+  async downgradePlan(userId: string) {
+    let freePlan = await this.prisma.subscription.findFirst({
+      where: { planName: PlanType.FREE },
+    });
+
+    if (!freePlan) {
+      freePlan = await this.prisma.subscription.create({
+        data: { planName: PlanType.FREE, requestLimit: 50 },
+      });
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { subscriptionId: freePlan.id },
+      include: { subscription: true },
+    });
+
+    return {
+      message: 'Subscription downgraded to FREE (50 requests limit)',
+      subscription: updated.subscription,
+    };
+  }
+
   async deleteAccount(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
