@@ -5,10 +5,12 @@ services:
     image: postgres:16-alpine
     container_name: echogpt-postgres
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
-      POSTGRES_DB: ${POSTGRES_DB:-echogpt_db}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - '5432:5432'
     volumes:
@@ -30,21 +32,9 @@ services:
         condition: service_healthy
     ports:
       - '3000:3000'
-    environment:
-      PORT: 3000
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-root}@postgres:5432/${POSTGRES_DB:-echogpt_db}?schema=public
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-echogpt_access_secret_super_secure_key_2026}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-echogpt_refresh_secret_super_secure_key_2026}
-      JWT_ACCESS_EXPIRATION: 15m
-      JWT_REFRESH_EXPIRATION: 7d
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@echogpt.com}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPass123!}
-      THROTTLE_TTL: 60
-      THROTTLE_LIMIT: 100
-      Gemini_Api: ${Gemini_Api}
-      Openai_Api: ${Openai_Api}
+    env_file:
+      - .env
 
 volumes:
   postgres_data:
+
