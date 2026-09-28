@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AIProvidersModule } from './modules/ai-providers/ai-providers.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { WebSearchModule } from './modules/web-search/web-search.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -29,6 +30,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     UsersModule,
     AIProvidersModule,
     ChatModule,
+    WebSearchModule,
   ],
   providers: [
     {

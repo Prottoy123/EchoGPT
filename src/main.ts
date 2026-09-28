@@ -39,7 +39,7 @@ async function bootstrap() {
     }),
   );
 
-  // OpenAPI (Swagger) Setup - Relying on CLI plugin for DTO reflection
+  // OpenAPI (Swagger) Setup - Fully automated via @nestjs/swagger CLI plugin
   const config = new DocumentBuilder()
     .setTitle('EchoGPT REST API')
     .setDescription(
@@ -59,6 +59,9 @@ async function bootstrap() {
     )
     .addTag('Authentication', 'User registration, login, and token rotation')
     .addTag('User Profile & Usage', 'Profile details and remaining quota limits')
+    .addTag('AI Provider Management', 'Admin CRUD for AI providers with AES-256-GCM encryption')
+    .addTag('Chat Engine (Vercel AI SDK)', 'Chat messaging, Vercel AI SDK routing, and history')
+    .addTag('Web Search API', 'DuckDuckGo web searching and query logging')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
