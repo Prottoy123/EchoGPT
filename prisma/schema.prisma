@@ -10,6 +10,7 @@ datasource db {
 model User {
   id                 String         @id @default(uuid())
   email              String         @unique
+  name               String?
   password           String
   role               Role           @default(USER)
   hashedRefreshToken String?
@@ -18,6 +19,7 @@ model User {
   subscription       Subscription   @relation(fields: [subscriptionId], references: [id])
   conversations      Conversation[]
   webSearches        WebSearch[]
+  sessions           Session[]
   createdAt          DateTime       @default(now())
 }
 
@@ -63,6 +65,29 @@ model WebSearch {
   createdAt DateTime @default(now())
 }
 
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model ApiUsageLog {
+  id         String    @id @default(uuid())
+  userId     String?
+  endpoint   String
+  method     String
+  statusCode Int
+  latencyMs  Int
+  provider   AiModel?
+  tokensUsed Int       @default(0)
+  createdAt  DateTime  @default(now())
+}
+
 enum Role {
   USER
   ADMIN
@@ -83,3 +108,4 @@ enum SenderRole {
   USER
   ASSISTANT
 }
+
