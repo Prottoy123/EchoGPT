@@ -102,10 +102,11 @@ npm run start:prod
 
 ---
 
-## 🔑 Default Seed Credentials
+## 🔑 Seed Credentials
 
-* **Admin Email**: `admin@echogpt.com`
-* **Admin Password**: `AdminPass123!`
+Configure your admin credentials securely in your local `.env`:
+* **Admin Email**: Configured via `ADMIN_EMAIL` in `.env`
+* **Admin Password**: Configured via `ADMIN_PASSWORD` in `.env`
 * **Role**: `ADMIN` (PREMIUM plan with 1,000 request limit)
 
 Pre-configured Providers:
