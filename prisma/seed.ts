@@ -5,7 +5,10 @@ import * as crypto from 'crypto';
 const prisma = new PrismaClient();
 
 function encryptApiKey(apiKey: string): string {
-  const rawKey = process.env.ENCRYPTION_KEY || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const rawKey = process.env.ENCRYPTION_KEY;
+  if (!rawKey) {
+    throw new Error('ENCRYPTION_KEY environment variable is required');
+  }
   const key = rawKey.length === 64 && /^[0-9a-fA-F]+$/.test(rawKey)
     ? Buffer.from(rawKey, 'hex')
     : crypto.createHash('sha256').update(rawKey).digest();
@@ -51,8 +54,11 @@ async function main() {
   }
 
   // 2. Seed Admin User
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@echogpt.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'AdminPass123!';
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminEmail || !adminPassword) {
+    throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required');
+  }
   const hashedPassword = await argon2.hash(adminPassword);
 
   const existingAdmin = await prisma.user.findUnique({
