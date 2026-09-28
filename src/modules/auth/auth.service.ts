@@ -145,6 +145,14 @@ export class AuthService {
     return tokens;
   }
 
+  async logout(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { hashedRefreshToken: null },
+    });
+    return { message: 'Logged out successfully' };
+  }
+
   private async generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
 

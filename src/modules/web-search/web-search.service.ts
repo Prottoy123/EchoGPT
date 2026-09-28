@@ -143,4 +143,41 @@ export class WebSearchService {
 
     return uniqueRecent;
   }
+
+  /**
+   * Search suggestions auto-complete
+   */
+  async getSuggestions(query: string) {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const trimmed = query.trim().toLowerCase();
+    const dbMatches = await this.prisma.webSearch.findMany({
+      where: {
+        query: {
+          contains: trimmed,
+          mode: 'insensitive',
+        },
+      },
+      select: { query: true },
+      take: 10,
+    });
+
+    const suggestions = Array.from(new Set(dbMatches.map((m) => m.query)));
+    const defaults = [
+      `${trimmed} overview`,
+      `${trimmed} tutorial`,
+      `${trimmed} best practices`,
+      `${trimmed} architecture`,
+    ];
+
+    for (const d of defaults) {
+      if (suggestions.length < 5 && !suggestions.includes(d)) {
+        suggestions.push(d);
+      }
+    }
+
+    return suggestions;
+  }
 }

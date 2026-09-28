@@ -58,4 +58,12 @@ export class WebSearchController {
     const limitNum = limit ? parseInt(limit, 10) : 5;
     return this.searchService.getRecent(userId, limitNum);
   }
+
+  @Get('suggestions')
+  @ApiOperation({ summary: 'Get auto-complete search query suggestions' })
+  @ApiQuery({ name: 'q', required: true, example: 'NestJS' })
+  @ApiResponse({ status: 200, description: 'Search suggestions returned' })
+  async getSuggestions(@Query('q') query: string) {
+    return this.searchService.getSuggestions(query);
+  }
 }

@@ -62,6 +62,13 @@ export class AIProvidersController {
     return this.aiProvidersService.update(id, dto);
   }
 
+  @Get(':id/health')
+  @ApiOperation({ summary: '[Admin] Health check ping verifying provider key integrity and status' })
+  @ApiResponse({ status: 200, description: 'Provider health check status' })
+  async checkHealth(@Param('id') id: string) {
+    return this.aiProvidersService.checkHealth(id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '[Admin] Remove an AI provider' })

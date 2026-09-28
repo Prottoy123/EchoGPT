@@ -1,6 +1,16 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -16,5 +26,33 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Profile and usage tracking returned' })
   async getProfile(@CurrentUser('id') userId: string) {
     return this.usersService.getProfile(userId);
+  }
+
+  @Post('me/change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change account password' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'Current password does not match' })
+  async changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.usersService.changePassword(userId, dto);
+  }
+
+  @Post('me/upgrade')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Upgrade account to PREMIUM plan (1,000 requests quota)' })
+  @ApiResponse({ status: 200, description: 'Upgraded to PREMIUM successfully' })
+  async upgradePlan(@CurrentUser('id') userId: string) {
+    return this.usersService.upgradePlan(userId);
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete user account and all associated data' })
+  @ApiResponse({ status: 200, description: 'Account permanently deleted' })
+  async deleteAccount(@CurrentUser('id') userId: string) {
+    return this.usersService.deleteAccount(userId);
   }
 }
