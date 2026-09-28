@@ -116,8 +116,20 @@ export class ChatService {
         });
         aiResponseText = text;
       } catch (err: any) {
-        this.logger.warn(`Vercel AI SDK generation fallback (${err.message}). Providing fallback response.`);
-        aiResponseText = `[EchoGPT ${provider.name} AI]: Here is the response to: "${dto.prompt}". Processed via unified Vercel AI SDK engine.`;
+        this.logger.warn(
+          `Vercel AI SDK upstream failure for ${provider.name}: ${err.message}`,
+        );
+
+        let cleanReason = err.message || 'Unknown upstream error';
+        if (cleanReason.includes('no credits remaining') || cleanReason.includes('insufficient_quota')) {
+          cleanReason =
+            'Your OpenAI account currently has $0.00 billing credits. OpenAI requires a funded account ($5 minimum at platform.openai.com/settings/organization/billing) to generate live completions.';
+        } else if (cleanReason.includes('API key not valid') || cleanReason.includes('API_KEY_INVALID')) {
+          cleanReason =
+            `The API key configured for ${provider.name} is invalid or expired. For a 100% free key, generate one at https://aistudio.google.com/app/apikey.`;
+        }
+
+        aiResponseText = `[EchoGPT ${provider.name} Provider Notice]: ${cleanReason}`;
       }
     }
 
@@ -166,7 +178,7 @@ export class ChatService {
       case AiModel.CLAUDE:
         return createAnthropic({ apiKey })('claude-3-5-sonnet-20241022');
       case AiModel.GEMINI:
-        return createGoogleGenerativeAI({ apiKey })('gemini-1.5-flash');
+        return createGoogleGenerativeAI({ apiKey })('gemini-3-flash-preview');
       default:
         return createOpenAI({ apiKey })('gpt-4o-mini');
     }
