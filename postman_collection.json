@@ -1,0 +1,269 @@
+{
+  "info": {
+    "_postman_id": "echogpt-backend-collection",
+    "name": "EchoGPT Backend REST API",
+    "description": "Production REST API Collection for EchoGPT Chrome Extension Backend (NestJS + PostgreSQL + Swagger)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "System Health",
+      "item": [
+        {
+          "name": "Health Check (Database & Memory)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1. Register New User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@echogpt.com\",\n  \"password\": \"UserSecretPass123!\",\n  \"firstName\": \"Alex\",\n  \"lastName\": \"Smith\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "2. Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@echogpt.com\",\n  \"password\": \"AdminPass123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "3. Rotate Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] }
+          }
+        },
+        {
+          "name": "4. Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/me", "host": ["{{baseUrl}}"], "path": ["users", "me"] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Alexander\",\n  \"lastName\": \"Smith\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/users/me", "host": ["{{baseUrl}}"], "path": ["users", "me"] }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"UserSecretPass123!\",\n  \"newPassword\": \"NewSecretPass456!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/users/me/change-password", "host": ["{{baseUrl}}"], "path": ["users", "me", "change-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Subscription Management",
+      "item": [
+        {
+          "name": "Subscription Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/subscriptions/status", "host": ["{{baseUrl}}"], "path": ["subscriptions", "status"] }
+          }
+        },
+        {
+          "name": "Usage Limits & Remaining Quota",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/subscriptions/usage", "host": ["{{baseUrl}}"], "path": ["subscriptions", "usage"] }
+          }
+        },
+        {
+          "name": "Upgrade Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan\": \"PREMIUM\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/subscriptions/upgrade", "host": ["{{baseUrl}}"], "path": ["subscriptions", "upgrade"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI Providers",
+      "item": [
+        {
+          "name": "List Active Providers (For Chrome Extension)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/ai-providers", "host": ["{{baseUrl}}"], "path": ["ai-providers"] }
+          }
+        },
+        {
+          "name": "[Admin] List All Providers (Masked Keys)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/ai-providers", "host": ["{{baseUrl}}"], "path": ["admin", "ai-providers"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat Engine",
+      "item": [
+        {
+          "name": "Send Chat Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Summarize clean architecture in 3 bullet points.\",\n  \"model\": \"gpt-4o\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/chat/message", "host": ["{{baseUrl}}"], "path": ["chat", "message"] }
+          }
+        },
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/chat/conversations?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["chat", "conversations"], "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "20"}] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Web Search",
+      "item": [
+        {
+          "name": "Search Query (Cached)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"NestJS OpenAPI best practices\",\n  \"maxResults\": 5\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/search/query", "host": ["{{baseUrl}}"], "path": ["search", "query"] }
+          }
+        },
+        {
+          "name": "Search Suggestions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/search/suggestions?q=NestJS", "host": ["{{baseUrl}}"], "path": ["search", "suggestions"], "query": [{"key": "q", "value": "NestJS"}] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Analytics & Moderation",
+      "item": [
+        {
+          "name": "Dashboard Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/analytics/dashboard", "host": ["{{baseUrl}}"], "path": ["admin", "analytics", "dashboard"] }
+          }
+        },
+        {
+          "name": "API Usage Logs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/analytics/usage-logs?page=1&limit=50", "host": ["{{baseUrl}}"], "path": ["admin", "analytics", "usage-logs"], "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "50"}] }
+          }
+        }
+      ]
+    }
+  ]
+}

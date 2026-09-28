@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: echogpt-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: echogpt
+      POSTGRES_PASSWORD: echogpt_secret
+      POSTGRES_DB: echogpt_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - echogpt_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U echogpt -d echogpt_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  echogpt_pgdata:

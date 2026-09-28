@@ -1,0 +1,184 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PlanTier {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+}
+
+enum AIProviderType {
+  OPENAI
+  ANTHROPIC
+  GEMINI
+}
+
+enum ProviderHealth {
+  ONLINE
+  DEGRADED
+  OFFLINE
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model User {
+  id               String          @id @default(uuid()) @db.Uuid
+  email            String          @unique
+  passwordHash     String
+  firstName        String?
+  lastName         String?
+  role             Role            @default(USER)
+  isEmailVerified  Boolean         @default(false)
+  emailVerifyToken String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  sessions         Session[]
+  subscription     Subscription?
+  conversations    Conversation[]
+  webSearches      WebSearch[]
+  apiUsageLogs     ApiUsageLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @db.Uuid
+  hashedRefreshToken String
+  userAgent          String?
+  ipAddress          String?
+  expiresAt          DateTime
+  isRevoked          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Subscription {
+  id                  String             @id @default(uuid()) @db.Uuid
+  userId              String             @unique @db.Uuid
+  plan                PlanTier           @default(FREE)
+  status              SubscriptionStatus @default(ACTIVE)
+  monthlyRequestLimit Int                @default(50)
+  monthlyTokenLimit   Int                @default(100000)
+  currentPeriodStart  DateTime           @default(now())
+  currentPeriodEnd    DateTime
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model AIProvider {
+  id              String         @id @default(uuid()) @db.Uuid
+  providerType    AIProviderType
+  displayName     String
+  encryptedApiKey String
+  iv              String
+  authTag         String
+  baseUrl         String?
+  defaultModels   Json           @default("[]")
+  isEnabled       Boolean        @default(true)
+  isDefault       Boolean        @default(false)
+  healthStatus    ProviderHealth @default(ONLINE)
+  lastHealthCheck DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  conversations   Conversation[]
+
+  @@map("ai_providers")
+}
+
+model Conversation {
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @db.Uuid
+  providerId String?       @db.Uuid
+  title      String        @default("New Chat")
+  modelName  String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   AIProvider?   @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  messages   ChatMessage[]
+
+  @@index([userId])
+  @@map("conversations")
+}
+
+model ChatMessage {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  role           MessageRole
+  content        String       @db.Text
+  tokensUsed     Int          @default(0)
+  latencyMs      Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("chat_messages")
+}
+
+model WebSearch {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  query         String
+  searchResults Json     @default("[]")
+  resultCount   Int      @default(0)
+  isCached      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([query])
+  @@map("web_searches")
+}
+
+model ApiUsageLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  endpoint   String
+  method     String
+  statusCode Int
+  durationMs Int
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("api_usage_logs")
+}
