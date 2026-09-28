@@ -1,32 +1,43 @@
-# --- Stage 1: Build ---
-FROM node:22-alpine AS builder
+# Multi-stage Dockerfile for EchoGPT Backend
+FROM node:20-alpine AS builder
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
+# Copy package manifests
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm install
+# Install dependencies
+RUN npm ci
 
-COPY . .
-
+# Generate Prisma Client
 RUN npx prisma generate
+
+# Copy source files
+COPY tsconfig*.json nest-cli.json ./
+COPY src ./src/
+
+# Compile production bundle
 RUN npm run build
 
-# --- Stage 2: Production Runtime ---
-FROM node:22-alpine AS production
+# Production runtime stage
+FROM node:20-alpine AS runner
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Copy package manifests and production dependencies
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --only=production
 
-COPY prisma ./prisma/
-RUN npx prisma generate
+# Copy Prisma schema and generated client
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-COPY --from=builder /usr/src/app/dist ./dist
+# Copy compiled JavaScript output
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 

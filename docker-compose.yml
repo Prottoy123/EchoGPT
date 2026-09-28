@@ -4,20 +4,47 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: echogpt-postgres
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: echogpt
-      POSTGRES_PASSWORD: echogpt_secret
-      POSTGRES_DB: echogpt_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      POSTGRES_DB: ${POSTGRES_DB:-echogpt_db}
     ports:
-      - "5433:5432"
+      - '5432:5432'
     volumes:
-      - echogpt_pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U echogpt -d echogpt_db"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: echogpt-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-root}@postgres:5432/${POSTGRES_DB:-echogpt_db}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-echogpt_access_secret_super_secure_key_2026}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-echogpt_refresh_secret_super_secure_key_2026}
+      JWT_ACCESS_EXPIRATION: 15m
+      JWT_REFRESH_EXPIRATION: 7d
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@echogpt.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPass123!}
+      THROTTLE_TTL: 60
+      THROTTLE_LIMIT: 100
+      Gemini_Api: ${Gemini_Api}
+      Openai_Api: ${Openai_Api}
+
 volumes:
-  echogpt_pgdata:
+  postgres_data:
