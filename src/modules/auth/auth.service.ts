@@ -112,9 +112,7 @@ export class AuthService {
     let payload: any;
     try {
       payload = this.jwtService.verify(dto.refreshToken, {
-        secret:
-          this.configService.get<string>('JWT_REFRESH_SECRET') ||
-          'echogpt_super_secret_jwt_refresh_key_min_32_characters_67890',
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
       throw new UnauthorizedException('Refresh token is invalid or expired');
@@ -156,12 +154,8 @@ export class AuthService {
   private async generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
 
-    const accessSecret =
-      this.configService.get<string>('JWT_ACCESS_SECRET') ||
-      'echogpt_super_secret_jwt_access_key_min_32_characters_12345';
-    const refreshSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ||
-      'echogpt_super_secret_jwt_refresh_key_min_32_characters_67890';
+    const accessSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
+    const refreshSecret = this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
