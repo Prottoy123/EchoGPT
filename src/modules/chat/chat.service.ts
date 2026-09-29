@@ -3,6 +3,7 @@ import {
   NotFoundException,
   HttpException,
   HttpStatus,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -10,6 +11,11 @@ import { AIProvidersService } from '../ai-providers/ai-providers.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { AiModel, SenderRole } from '@prisma/client';
 import { generateText } from 'ai';
+import {
+  SendMessageZodSchema,
+  RawAiTextOutputSchema,
+  ChatResponsePayloadSchema,
+} from './chat.schema';
 
 type MessageInput = {
   role: 'user' | 'assistant' | 'system';
@@ -29,14 +35,34 @@ export class ChatService {
   ) {}
 
   /**
-   * Core Chat Logic:
+   * Core Chat Logic with Zod Validation:
+   * 0. Validate prompt and request parameters using Zod (min 1, max 4000, trimmed, UUID)
    * 1. Check requestsCount < requestLimit -> Throw 402 if exceeded
    * 2. Decrypt default/target provider key
    * 3. Call Vercel AI SDK
-   * 4. Save Conversation History
-   * 5. Increment requestsCount
+   * 4. Sanitize and validate raw AI response using Zod
+   * 5. Save Conversation History
+   * 6. Increment requestsCount
+   * 7. Enforce runtime response contract via Zod before returning
    */
   async sendMessage(userId: string, dto: SendMessageDto) {
+    // 0. Zod Validation for incoming prompt and parameters
+    const parsedInput = SendMessageZodSchema.safeParse(dto);
+    if (!parsedInput.success) {
+      const issues = (parsedInput.error as any).issues || [];
+      throw new BadRequestException({
+        statusCode: HttpStatus.BAD_REQUEST,
+        error: 'Bad Request',
+        message: 'Prompt validation failed via Zod',
+        details: issues.map((issue: any) => ({
+          field: Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path || ''),
+          code: issue.code,
+          message: issue.message,
+        })),
+      });
+    }
+    const validatedDto = parsedInput.data;
+
     // 1. Quota limit check
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -55,19 +81,22 @@ export class ChatService {
     }
 
     // 2. Decrypt default or requested provider key in memory
-    const provider = await this.aiProvidersService.getActiveProviderDecrypted(dto.model);
+    const provider = await this.aiProvidersService.getActiveProviderDecrypted(validatedDto.model);
 
     // 3. Resolve or create Conversation thread
     let conversation;
-    if (dto.conversationId) {
+    if (validatedDto.conversationId) {
       conversation = await this.prisma.conversation.findFirst({
-        where: { id: dto.conversationId, userId },
+        where: { id: validatedDto.conversationId, userId },
       });
       if (!conversation) {
         throw new NotFoundException('Conversation not found');
       }
     } else {
-      const title = dto.prompt.length > 40 ? `${dto.prompt.slice(0, 37)}...` : dto.prompt;
+      const title =
+        validatedDto.prompt.length > 40
+          ? `${validatedDto.prompt.slice(0, 37)}...`
+          : validatedDto.prompt;
       conversation = await this.prisma.conversation.create({
         data: {
           userId,
@@ -81,7 +110,7 @@ export class ChatService {
       data: {
         conversationId: conversation.id,
         role: SenderRole.USER,
-        content: dto.prompt,
+        content: validatedDto.prompt,
       },
     });
 
@@ -106,7 +135,7 @@ export class ChatService {
       provider.apiKey.startsWith('sk-ant-demo');
 
     if (isDemoKey) {
-      aiResponseText = `[EchoGPT ${provider.name} AI]: In response to "${dto.prompt}": This is an intelligent response generated via the unified Vercel AI SDK routing adapter.`;
+      aiResponseText = `[EchoGPT ${provider.name} AI]: In response to "${validatedDto.prompt}": This is an intelligent response generated via the unified Vercel AI SDK routing adapter.`;
     } else {
       try {
         const modelInstance = this.getModelInstance(provider.name, provider.apiKey);
@@ -133,16 +162,22 @@ export class ChatService {
       }
     }
 
-    // 7. Save Assistant response to Message table
+    // 7. Validate and sanitize raw AI model text output with Zod
+    const validatedAiOutput = RawAiTextOutputSchema.safeParse(aiResponseText);
+    const sanitizedAiText = validatedAiOutput.success
+      ? validatedAiOutput.data
+      : `[EchoGPT ${provider.name} AI]: The AI model did not return valid textual content. Please rephrase your query.`;
+
+    // 8. Save Assistant response to Message table
     const assistantMessage = await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
         role: SenderRole.ASSISTANT,
-        content: aiResponseText,
+        content: sanitizedAiText,
       },
     });
 
-    // 8. Increment user requestsCount
+    // 9. Increment user requestsCount
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { requestsCount: { increment: 1 } },
@@ -157,7 +192,8 @@ export class ChatService {
       updatedUser.subscription.requestLimit - updatedUser.requestsCount,
     );
 
-    return {
+    // 10. Enforce runtime response contract validation using Zod
+    const rawResponse = {
       conversationId: conversation.id,
       provider: provider.name,
       messageId: assistantMessage.id,
@@ -166,6 +202,8 @@ export class ChatService {
       remainingRequests,
       createdAt: assistantMessage.createdAt,
     };
+
+    return ChatResponsePayloadSchema.parse(rawResponse);
   }
 
   /**

@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  UsePipes,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -15,6 +16,8 @@ import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { SendMessageZodSchema } from './chat.schema';
 
 @ApiTags('Chat')
 @ApiBearerAuth('JWT')
@@ -25,17 +28,24 @@ export class ChatController {
 
   @Post('message')
   @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(SendMessageZodSchema))
   @ApiOperation({
-    summary: 'Send prompt, route through Vercel AI SDK, and record history',
+    summary: 'Send prompt, route through Vercel AI SDK, and record history (Zod Validated)',
     description: `
+### 🛡️ Zod Schema Validation Layer
+- **Prompt Sanitization**: Strips leading/trailing whitespace, rejects whitespace-only queries, and enforces length bounds (1 to 4,000 characters) to prevent token overflow attacks.
+- **UUID & Enum Verification**: Enforces UUID v4 validation on optional \`conversationId\` and strictly validates \`model\` against supported enum variants (\`OPENAI\`, \`CLAUDE\`, \`GEMINI\`).
+- **Response Contract Validation**: Uses Zod to validate raw model outputs and guarantees runtime compliance of the outgoing response payload.
+
 ### ⚙️ How It Occurs in the Service
-1. **Quota Gatekeeper**: Verifies \`user.requestsCount < user.subscription.requestLimit\`. Rejects immediately with HTTP 402 Payment Required if quota is exhausted.
-2. **Conversation Management**: Automatically finds existing thread or spawns a new \`Conversation\` entity with title generated from initial prompt.
-3. **AES-256-GCM Key Decryption**: Decrypts the target AI provider key (\`GEMINI\`, \`OPENAI\`, \`CLAUDE\`) in-memory. Plaintext keys are never logged or persisted.
-4. **Context Window Assembly**: Fetches up to the last 10 conversational exchanges from PostgreSQL to provide context-aware responses.
-5. **Unified AI SDK Orchestration**: Dispatches message payload to model (e.g. \`gemini-3-flash-preview\`, \`gpt-4o-mini\`).
-6. **Graceful Upstream Fallbacks**: Catches upstream rate limits, quota limits, or invalid keys cleanly and formats a user-friendly notice without dropping the connection.
-7. **Atomic Increment & Persistence**: Commits assistant response to \`Message\` table and increments \`User.requestsCount\` by 1.
+1. **Zod Validation Pipeline**: Validates incoming request body before any database queries. Rejects invalid requests immediately with HTTP 400 Bad Request and detailed field-level error diagnostics.
+2. **Quota Gatekeeper**: Verifies \`user.requestsCount < user.subscription.requestLimit\`. Rejects immediately with HTTP 402 Payment Required if quota is exhausted.
+3. **Conversation Management**: Automatically finds existing thread or spawns a new \`Conversation\` entity with title generated from initial prompt.
+4. **AES-256-GCM Key Decryption**: Decrypts the target AI provider key (\`GEMINI\`, \`OPENAI\`, \`CLAUDE\`) in-memory. Plaintext keys are never logged or persisted.
+5. **Context Window Assembly**: Fetches up to the last 10 conversational exchanges from PostgreSQL to provide context-aware responses.
+6. **Unified AI SDK Orchestration**: Dispatches message payload to model (e.g. \`gemini-3-flash-preview\`, \`gpt-4o-mini\`).
+7. **Graceful Upstream Fallbacks**: Catches upstream rate limits, quota limits, or invalid keys cleanly and formats a user-friendly notice without dropping the connection.
+8. **Atomic Increment & Persistence**: Commits assistant response to \`Message\` table and increments \`User.requestsCount\` by 1.
 
 ### 📈 Future Scalability & Architecture Roadmap
 * **Chunked Streaming**: Transition from synchronous JSON to Server-Sent Events (SSE) or WebSockets via \`streamText\` for real-time typewriter output.
@@ -43,6 +53,7 @@ export class ChatController {
     `,
   })
   @ApiResponse({ status: 200, description: 'AI response generated and message thread updated' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Zod schema validation failed for prompt or parameters' })
   @ApiResponse({ status: 402, description: 'Monthly request limit exceeded. Upgrade subscription required.' })
   async sendMessage(
     @CurrentUser('id') userId: string,
