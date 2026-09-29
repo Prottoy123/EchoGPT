@@ -199,6 +199,27 @@
         ]
       }
     },
+    "/api/v1/users/me/remaining-requests": {
+      "get": {
+        "operationId": "UsersController_getRemainingRequests",
+        "summary": "Remaining Requests API: Get remaining quota count and consumption metrics",
+        "description": "\n### ⚙️ How It Occurs in the Service\n1. **Real-time Quota Calculation**: Evaluates `Math.max(0, requestLimit - requestsCount)`.\n2. **Threshold Monitoring**: Computes `isLimitReached` boolean flag so frontend/extension can display upgrade triggers.\n    ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Remaining requests count and quota status returned"
+          }
+        },
+        "tags": [
+          "User Profile & Usage"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/users/me/downgrade": {
       "post": {
         "operationId": "UsersController_downgradePlan",
@@ -271,6 +292,118 @@
         "security": [
           {
             "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/subscriptions/plans": {
+      "get": {
+        "operationId": "SubscriptionsController_getPlans",
+        "summary": "List available plans (Free & Premium)",
+        "description": "\n### Plan Catalog & Feature Matrix\n- Returns all supported subscription tiers:\n  - **FREE**: 50 AI requests/month, Google Gemini & OpenAI access, web search integration.\n  - **PREMIUM**: 1,000 AI requests/month, Claude 3.5 Sonnet, low-latency priority inference routing, extended context window.\n    ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Available plans and feature matrices returned"
+          }
+        },
+        "tags": [
+          "Subscription Management"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/status": {
+      "get": {
+        "operationId": "SubscriptionsController_getStatus",
+        "summary": "Subscription Status API: Get current user subscription tier and status",
+        "description": "\n### Subscription Status & Metrics\n- **Identity Context**: Resolves authenticated user from JWT.\n- **Relational Plan Inspection**: Queries active `Subscription` entity (`FREE` vs `PREMIUM`).\n- **Real-Time Quota Metrics**: Returns total limit, consumed count, remaining requests balance, and active status flag.\n    ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Active subscription status returned"
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid Bearer JWT"
+          }
+        },
+        "tags": [
+          "Subscription Management"
+        ],
+        "security": [
+          {
+            "JWT": []
+          }
+        ]
+      }
+    },
+    "/api/v1/subscriptions/remaining-requests": {
+      "get": {
+        "operationId": "SubscriptionsController_getRemainingRequests",
+        "summary": "Remaining Requests API: Get remaining quota count and consumption metrics",
+        "description": "\n### Usage Limits & Balance Checking\n- **Real-time Quota Calculation**: Evaluates `Math.max(0, requestLimit - requestsCount)`.\n- **Threshold Monitoring**: Computes `isLimitReached` boolean flag so client/extension can trigger upgrade modals.\n    ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Remaining requests count and quota status returned"
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid Bearer JWT"
+          }
+        },
+        "tags": [
+          "Subscription Management"
+        ],
+        "security": [
+          {
+            "JWT": []
+          }
+        ]
+      }
+    },
+    "/api/v1/subscriptions/upgrade": {
+      "post": {
+        "operationId": "SubscriptionsController_upgrade",
+        "summary": "Upgrade Subscription: Upgrade account to PREMIUM plan (1,000 requests quota)",
+        "description": "\n### Quota Expansion & Tier Elevation\n- **Plan Mutation**: Transitions user account from `FREE` to `PREMIUM` tier.\n- **Immediate Quota Expansion**: Expands monthly quota from 50 to 1,000 requests.\n- **Preserves Consumption**: Retains current `requestsCount` to ensure billing integrity.\n    ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Upgraded to PREMIUM successfully"
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid Bearer JWT"
+          }
+        },
+        "tags": [
+          "Subscription Management"
+        ],
+        "security": [
+          {
+            "JWT": []
+          }
+        ]
+      }
+    },
+    "/api/v1/subscriptions/downgrade": {
+      "post": {
+        "operationId": "SubscriptionsController_downgrade",
+        "summary": "Downgrade Subscription: Downgrade account to FREE plan (50 requests limit)",
+        "description": "\n### Tier Reversion\n- **Plan Mutation**: Transitions user account to `FREE` tier.\n- **Quota Contraction**: Restricts monthly request quota to 50 requests.\n    ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Downgraded to FREE successfully"
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid Bearer JWT"
+          }
+        },
+        "tags": [
+          "Subscription Management"
+        ],
+        "security": [
+          {
+            "JWT": []
           }
         ]
       }
