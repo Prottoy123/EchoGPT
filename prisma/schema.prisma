@@ -13,6 +13,8 @@ model User {
   name               String?
   password           String
   role               Role           @default(USER)
+  isEmailVerified    Boolean        @default(false)
+  emailVerifyToken   String?
   hashedRefreshToken String?
   requestsCount      Int            @default(0)
   subscriptionId     String
