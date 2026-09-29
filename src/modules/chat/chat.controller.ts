@@ -6,11 +6,13 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
   UsePipes,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -60,6 +62,29 @@ export class ChatController {
     @Body() dto: SendMessageDto,
   ) {
     return this.chatService.sendMessage(userId, dto);
+  }
+
+  @Post('stream')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(SendMessageZodSchema))
+  @ApiOperation({
+    summary: 'Streaming Response (Bonus): Stream AI response tokens via Server-Sent Events (SSE)',
+    description: `
+### Real-Time Streaming Architecture
+- **Server-Sent Events (SSE)**: Streams text tokens incrementally to the client using \`text/event-stream\`.
+- **Reduced Time-to-First-Token (TTFT)**: Starts delivering tokens within milliseconds instead of waiting for complete generation.
+- **Quota & Persistence**: Enforces subscription limits before streaming starts, and commits the full message to PostgreSQL upon stream completion.
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'Token stream delivered via Server-Sent Events' })
+  @ApiResponse({ status: 400, description: 'Bad Request - Zod schema validation failed for prompt or parameters' })
+  @ApiResponse({ status: 402, description: 'Monthly request limit exceeded. Upgrade subscription required.' })
+  async streamMessage(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SendMessageDto,
+    @Res() res: Response,
+  ) {
+    return this.chatService.streamMessage(userId, dto, res);
   }
 
   @Get('conversations')

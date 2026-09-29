@@ -10,10 +10,43 @@ export class WebSearchService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Execute web search using DuckDuckGo free tier with fallback synthesis, and save query to DB
+   * Execute web search using DuckDuckGo with fallback synthesis, search result caching (Bonus), and DB persistence
    */
   async search(userId: string, dto: SearchQueryDto) {
     const maxResults = dto.maxResults || 5;
+    const normalizedQuery = dto.query.trim().toLowerCase();
+
+    // 1. Search Result Caching (Bonus): Check for cached results within the last 1 hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const cachedSearch = await this.prisma.webSearch.findFirst({
+      where: {
+        query: { equals: dto.query.trim(), mode: 'insensitive' },
+        createdAt: { gte: oneHourAgo },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (cachedSearch) {
+      this.logger.log(`Serving cached web search results for query: "${dto.query}"`);
+      // Also record search query history entry for current user if different from cached search
+      const userRecord = await this.prisma.webSearch.create({
+        data: {
+          userId,
+          query: dto.query.trim(),
+          results: cachedSearch.results as any,
+        },
+      });
+
+      return {
+        id: userRecord.id,
+        query: userRecord.query,
+        results: userRecord.results,
+        cached: true,
+        cachedAt: cachedSearch.createdAt,
+        createdAt: userRecord.createdAt,
+      };
+    }
+
     let results: any[] = [];
 
     try {
@@ -84,6 +117,7 @@ export class WebSearchService {
       id: saved.id,
       query: saved.query,
       results: saved.results,
+      cached: false,
       createdAt: saved.createdAt,
     };
   }
