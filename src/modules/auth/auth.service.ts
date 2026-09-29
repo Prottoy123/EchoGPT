@@ -2,6 +2,8 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -173,6 +175,78 @@ export class AuthService {
       refreshToken,
       tokenType: 'Bearer',
       expiresIn: 900,
+    };
+  }
+
+  async sendVerificationEmail(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.isEmailVerified) {
+      return { message: 'Email is already verified', email: user.email, isEmailVerified: true };
+    }
+
+    const accessSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
+    const token = await this.jwtService.signAsync(
+      { sub: user.id, email: user.email, purpose: 'EMAIL_VERIFY' },
+      { secret: accessSecret, expiresIn: '24h' },
+    );
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifyToken: token },
+    });
+
+    return {
+      message: 'Verification email sent successfully (simulated SMTP dispatch)',
+      email: user.email,
+      verificationToken: token,
+      verificationUrl: `/api/v1/auth/verify-email?token=${token}`,
+    };
+  }
+
+  async verifyEmail(token: string) {
+    if (!token) {
+      throw new BadRequestException('Verification token is required');
+    }
+
+    const accessSecret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
+    let payload: any;
+    try {
+      payload = await this.jwtService.verifyAsync(token, { secret: accessSecret });
+    } catch {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    if (payload.purpose !== 'EMAIL_VERIFY') {
+      throw new BadRequestException('Invalid token purpose');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isEmailVerified: true,
+        emailVerifyToken: null,
+      },
+    });
+
+    return {
+      message: 'Email verified successfully',
+      email: user.email,
+      isEmailVerified: true,
     };
   }
 }

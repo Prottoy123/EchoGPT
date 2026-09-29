@@ -1,6 +1,8 @@
 import {
   Controller,
   Post,
+  Get,
+  Query,
   Body,
   UseGuards,
   HttpCode,
@@ -107,5 +109,51 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User session successfully terminated' })
   async logout(@CurrentUser('id') userId: string) {
     return this.authService.logout(userId);
+  }
+
+  @Post('send-verification')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Email Verification (Bonus): Dispatch email verification token link',
+    description: `
+### Email Verification Flow
+- Generates a signed cryptographic verification JWT valid for 24 hours.
+- Saves the token in PostgreSQL and dispatches verification link.
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'Verification email dispatched' })
+  async sendVerificationEmail(@CurrentUser('id') userId: string) {
+    return this.authService.sendVerificationEmail(userId);
+  }
+
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Email Verification (Bonus): Verify email address via cryptographic token',
+    description: `
+### Email Confirmation
+- Verifies the signature and expiration of the verification token.
+- Updates \`User.isEmailVerified\` to \`true\` in PostgreSQL.
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'Email address verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired verification token' })
+  async verifyEmail(
+    @Body('token') bodyToken?: string,
+    @Query('token') queryToken?: string,
+  ) {
+    const token = bodyToken || queryToken;
+    return this.authService.verifyEmail(token as string);
+  }
+
+  @Public()
+  @Get('verify-email')
+  @ApiOperation({ summary: 'Email Verification (Bonus): Verify email via GET link from inbox' })
+  @ApiResponse({ status: 200, description: 'Email address verified successfully' })
+  async verifyEmailGet(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
   }
 }

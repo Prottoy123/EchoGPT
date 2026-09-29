@@ -10,7 +10,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AIProvidersService } from '../ai-providers/ai-providers.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { AiModel, SenderRole } from '@prisma/client';
-import { generateText } from 'ai';
+import { generateText, streamText } from 'ai';
+import { Response } from 'express';
 import {
   SendMessageZodSchema,
   RawAiTextOutputSchema,
@@ -204,6 +205,180 @@ export class ChatService {
     };
 
     return ChatResponsePayloadSchema.parse(rawResponse);
+  }
+
+  /**
+   * Streaming Response (Bonus): Stream tokens via Server-Sent Events (SSE)
+   */
+  async streamMessage(userId: string, dto: SendMessageDto, res: Response) {
+    const parsedInput = SendMessageZodSchema.safeParse(dto);
+    if (!parsedInput.success) {
+      const issues = (parsedInput.error as any).issues || [];
+      throw new BadRequestException({
+        statusCode: HttpStatus.BAD_REQUEST,
+        error: 'Bad Request',
+        message: 'Prompt validation failed via Zod',
+        details: issues.map((issue: any) => ({
+          field: Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path || ''),
+          code: issue.code,
+          message: issue.message,
+        })),
+      });
+    }
+    const validatedDto = parsedInput.data;
+
+    // 1. Quota check
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { subscription: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.requestsCount >= user.subscription.requestLimit) {
+      throw new HttpException(
+        `Monthly request limit reached (${user.requestsCount}/${user.subscription.requestLimit}). Please upgrade your subscription plan.`,
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+
+    // 2. Decrypt provider key
+    const provider = await this.aiProvidersService.getActiveProviderDecrypted(validatedDto.model);
+
+    // 3. Conversation resolve
+    let conversation;
+    if (validatedDto.conversationId) {
+      conversation = await this.prisma.conversation.findFirst({
+        where: { id: validatedDto.conversationId, userId },
+      });
+      if (!conversation) {
+        throw new NotFoundException('Conversation not found');
+      }
+    } else {
+      const title =
+        validatedDto.prompt.length > 40
+          ? `${validatedDto.prompt.slice(0, 37)}...`
+          : validatedDto.prompt;
+      conversation = await this.prisma.conversation.create({
+        data: { userId, title },
+      });
+    }
+
+    // 4. Save user message
+    await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: SenderRole.USER,
+        content: validatedDto.prompt,
+      },
+    });
+
+    // 5. Context window
+    const history = await this.prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+    history.reverse();
+    const messages: MessageInput[] = history.map((msg) => ({
+      role: msg.role === SenderRole.USER ? ('user' as const) : ('assistant' as const),
+      content: msg.content,
+    }));
+
+    // 6. Set SSE Headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    let fullResponse = '';
+    const isDemoKey =
+      provider.apiKey.startsWith('sk-demo') ||
+      provider.apiKey.startsWith('AIzaSyDemo') ||
+      provider.apiKey.startsWith('sk-ant-demo');
+
+    if (isDemoKey) {
+      const demoChunks = [
+        `[EchoGPT `,
+        `${provider.name} `,
+        `Streaming AI]: `,
+        `Real-time `,
+        `stream `,
+        `response `,
+        `for: `,
+        `"${validatedDto.prompt}". `,
+        `Delivered via Server-Sent Events (SSE).`,
+      ];
+      for (const chunk of demoChunks) {
+        fullResponse += chunk;
+        res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+      }
+    } else {
+      try {
+        const modelInstance = this.getModelInstance(provider.name, provider.apiKey);
+        const result = streamText({
+          model: modelInstance,
+          messages,
+          onError: ({ error }) => {
+            this.logger.warn(`Vercel AI SDK streamText onError: ${error}`);
+          },
+        });
+
+        try {
+          for await (const delta of result.textStream) {
+            fullResponse += delta;
+            res.write(`data: ${JSON.stringify({ text: delta })}\n\n`);
+          }
+        } catch (streamErr: any) {
+          this.logger.warn(`Stream iteration error: ${streamErr.message}`);
+          const fallbackText = `[EchoGPT ${provider.name} Notice]: ${streamErr.message}`;
+          fullResponse += fallbackText;
+          res.write(`data: ${JSON.stringify({ text: fallbackText })}\n\n`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`Streaming upstream failure for ${provider.name}: ${err.message}`);
+        const fallbackText = `[EchoGPT ${provider.name} Provider Notice]: ${err.message}`;
+        fullResponse += fallbackText;
+        res.write(`data: ${JSON.stringify({ text: fallbackText })}\n\n`);
+      }
+    }
+
+    // 7. Save Assistant Message
+    await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: SenderRole.ASSISTANT,
+        content: fullResponse || 'Stream finished',
+      },
+    });
+
+    // 8. Increment user requestsCount
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { requestsCount: { increment: 1 } },
+      select: {
+        requestsCount: true,
+        subscription: { select: { requestLimit: true } },
+      },
+    });
+
+    const remainingRequests = Math.max(
+      0,
+      updatedUser.subscription.requestLimit - updatedUser.requestsCount,
+    );
+
+    // Send closing SSE message
+    res.write(
+      `data: ${JSON.stringify({
+        done: true,
+        conversationId: conversation.id,
+        requestsCount: updatedUser.requestsCount,
+        remainingRequests,
+      })}\n\n`,
+    );
+    res.end();
   }
 
   /**
