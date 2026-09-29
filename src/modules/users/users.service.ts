@@ -138,6 +138,34 @@ export class UsersService {
     };
   }
 
+  async getRemainingRequests(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        subscription: true,
+        requestsCount: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const remainingRequests = Math.max(
+      0,
+      user.subscription.requestLimit - user.requestsCount,
+    );
+
+    return {
+      planName: user.subscription.planName,
+      requestLimit: user.subscription.requestLimit,
+      requestsCount: user.requestsCount,
+      remainingRequests,
+      isLimitReached: user.requestsCount >= user.subscription.requestLimit,
+      resetPeriod: 'MONTHLY',
+    };
+  }
+
   async downgradePlan(userId: string) {
     let freePlan = await this.prisma.subscription.findFirst({
       where: { planName: PlanType.FREE },

@@ -82,6 +82,20 @@ export class UsersController {
     return this.usersService.getSubscriptionStatus(userId);
   }
 
+  @Get('me/remaining-requests')
+  @ApiOperation({
+    summary: 'Remaining Requests API: Get remaining quota count and consumption metrics',
+    description: `
+### ⚙️ How It Occurs in the Service
+1. **Real-time Quota Calculation**: Evaluates \`Math.max(0, requestLimit - requestsCount)\`.
+2. **Threshold Monitoring**: Computes \`isLimitReached\` boolean flag so frontend/extension can display upgrade triggers.
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'Remaining requests count and quota status returned' })
+  async getRemainingRequests(@CurrentUser('id') userId: string) {
+    return this.usersService.getRemainingRequests(userId);
+  }
+
   @Post('me/downgrade')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
