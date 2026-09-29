@@ -10,6 +10,7 @@ import { AIProvidersModule } from './modules/ai-providers/ai-providers.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { WebSearchModule } from './modules/web-search/web-search.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -31,6 +32,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
     PrismaModule,
     AuthModule,
     UsersModule,
+    SubscriptionsModule,
     AIProvidersModule,
     ChatModule,
     WebSearchModule,
