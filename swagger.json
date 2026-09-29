@@ -109,6 +109,77 @@
         ]
       }
     },
+    "/api/v1/auth/send-verification": {
+      "post": {
+        "operationId": "AuthController_sendVerificationEmail",
+        "summary": "Email Verification (Bonus): Dispatch email verification token link",
+        "description": "\n### Email Verification Flow\n- Generates a signed cryptographic verification JWT valid for 24 hours.\n- Saves the token in PostgreSQL and dispatches verification link.\n    ",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Verification email dispatched"
+          }
+        },
+        "tags": [
+          "Authentication"
+        ],
+        "security": [
+          {
+            "JWT": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "operationId": "AuthController_verifyEmail",
+        "summary": "Email Verification (Bonus): Verify email address via cryptographic token",
+        "description": "\n### Email Confirmation\n- Verifies the signature and expiration of the verification token.\n- Updates `User.isEmailVerified` to `true` in PostgreSQL.\n    ",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email address verified successfully"
+          },
+          "400": {
+            "description": "Invalid or expired verification token"
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      },
+      "get": {
+        "operationId": "AuthController_verifyEmailGet",
+        "summary": "Email Verification (Bonus): Verify email via GET link from inbox",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email address verified successfully"
+          }
+        },
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/api/v1/users/me": {
       "get": {
         "operationId": "UsersController_getProfile",
@@ -656,6 +727,43 @@
         "responses": {
           "200": {
             "description": "AI response generated and message thread updated"
+          },
+          "400": {
+            "description": "Bad Request - Zod schema validation failed for prompt or parameters"
+          },
+          "402": {
+            "description": "Monthly request limit exceeded. Upgrade subscription required."
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "JWT": []
+          }
+        ]
+      }
+    },
+    "/api/v1/chat/stream": {
+      "post": {
+        "operationId": "ChatController_streamMessage",
+        "summary": "Streaming Response (Bonus): Stream AI response tokens via Server-Sent Events (SSE)",
+        "description": "\n### Real-Time Streaming Architecture\n- **Server-Sent Events (SSE)**: Streams text tokens incrementally to the client using `text/event-stream`.\n- **Reduced Time-to-First-Token (TTFT)**: Starts delivering tokens within milliseconds instead of waiting for complete generation.\n- **Quota & Persistence**: Enforces subscription limits before streaming starts, and commits the full message to PostgreSQL upon stream completion.\n    ",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token stream delivered via Server-Sent Events"
           },
           "400": {
             "description": "Bad Request - Zod schema validation failed for prompt or parameters"
